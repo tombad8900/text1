@@ -3,64 +3,71 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>حقن نص شرس - المطور</title>
+  <title>حقن نص شرس - التنفيذ المطلق</title>
   <style>
     body, html {
       margin: 0; padding: 0;
       height: 100%; width: 100%;
       background: #000;
       color: #fff;
-      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
       overflow: hidden;
     }
     #ui {
       position: fixed;
       top: 0; left: 0; right: 0;
       z-index: 1000;
-      background: rgba(10, 0, 0, 0.9);
-      padding: 15px;
-      border-bottom: 2px solid #600;
-      backdrop-filter: blur(10px);
+      background: rgba(10, 0, 0, 0.92);
+      padding: 12px 16px;
+      border-bottom: 2px solid #800;
+      backdrop-filter: blur(12px);
+      box-sizing: border-box;
     }
     textarea {
       width: 100%;
-      height: 60px;
-      background: #111;
-      color: #f44;
-      border: 1px solid #400;
-      padding: 10px;
-      font-size: 14px;
-      border-radius: 5px;
+      height: 70px;
+      background: #0a0a0a;
+      color: #ff4444;
+      border: 1px solid #500;
+      padding: 12px;
+      font-size: 15px;
+      border-radius: 6px;
       resize: none;
       box-sizing: border-box;
+      outline: none;
+      font-family: inherit;
     }
     .buttons {
       display: flex;
-      gap: 10px;
+      gap: 12px;
       margin-top: 10px;
     }
     button {
       flex: 1;
-      padding: 10px;
+      padding: 12px;
       cursor: pointer;
-      font-weight: bold;
+      font-weight: 900;
       border: none;
-      border-radius: 4px;
-      transition: 0.3s;
+      border-radius: 5px;
+      transition: all 0.2s;
+      text-transform: uppercase;
+      letter-spacing: 1px;
     }
-    #applyBtn { background: #800; color: white; }
-    #shareBtn { background: #0066cc; color: white; }
-    #clearBtn { background: #333; color: #ccc; }
+    #applyBtn { background: #b00; color: white; }
+    #applyBtn:hover { background: #f00; box-shadow: 0 0 15px #f00; }
+    #shareBtn { background: #0055ff; color: white; }
+    #shareBtn:hover { background: #3388ff; box-shadow: 0 0 15px #0055ff; }
+    #clearBtn { background: #222; color: #888; }
     canvas { display: block; }
   </style>
 </head>
 <body>
 
 <div id="ui">
-  <textarea id="input" placeholder="اكتب النص هنا.. ثم اضغط عرض للحفظ"></textarea>
+  <textarea id="input" placeholder="اكتب النص هنا... سيتم عرضه فوراً وبشراسة"></textarea>
   <div class="buttons">
     <button id="applyBtn" onclick="updateText()">عرض النص</button>
-    <button id="shareBtn" onclick="copyShareLink()">نسخ رابط المشاركة</button>
+    <button id="shareBtn" onclick="copyShareLink()">نسخ الرابط</button>
     <button id="clearBtn" onclick="clearText()">مسح</button>
   </div>
 </div>
@@ -81,15 +88,19 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
-// قراءة النص من الرابط عند التحميل
-function init() {
+// قراءة النص من الـ Hash
+function loadTextFromHash() {
   const hash = window.location.hash.substring(1);
   if (hash) {
-    const text = decodeURIComponent(hash);
-    inputEl.value = text;
-    lines = text.split('\n').filter(l => l.trim() !== "");
-  } else {
-    lines = ["أدخل النص", "ليظهر هنا"];
+    try {
+      const decoded = decodeURIComponent(hash);
+      inputEl.value = decoded;
+      lines = decoded.split('\n').filter(line => line.length > 0);
+    } catch(e) {
+      console.error("خطأ في قراءة الرابط");
+    }
+  } else if (lines.length === 0) {
+    lines = ["نظام التنفيذ المطلق", "أدخل النص للبدء"];
   }
 }
 
@@ -97,7 +108,7 @@ function updateText() {
   const val = inputEl.value.trim();
   if (val) {
     window.location.hash = encodeURIComponent(val);
-    lines = val.split('\n').filter(l => l.trim() !== "");
+    lines = val.split('\n').filter(line => line.length > 0);
   }
 }
 
@@ -105,7 +116,7 @@ function copyShareLink() {
   updateText();
   const link = window.location.href;
   navigator.clipboard.writeText(link).then(() => {
-    alert("تم نسخ الرابط! أرسله الآن لأي شخص وسيرى النص.");
+    alert("تم نسخ الرابط الشرس! أرسله لمن تشاء.");
   });
 }
 
@@ -115,56 +126,67 @@ function clearText() {
   window.location.hash = "";
 }
 
+// تحديث النص عند تغيير الـ Hash يدوياً أو خارجياً
+window.addEventListener('hashchange', loadTextFromHash);
+
 function draw() {
-  time += 0.02;
+  time += 0.016;
   
-  // خلفية نبضية
+  // خلفية سوداء عميقة مع نبض خفيف
   ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, w, h);
   
   const uiH = document.getElementById('ui').offsetHeight;
-  const availableH = h - uiH;
-  const centerY = uiH + (availableH / 2);
-
+  const safeW = w * 0.92; // هامش أمان جانبي 4% من كل جهة
+  const safeH = h - uiH - 40; // مساحة عمودية صافية تحت القائمة
+  
   if (lines.length > 0) {
-    // 1. حساب حجم الخط المناسب (Dynamic Scaling)
-    let fontSize = Math.min(w * 0.12, availableH / (lines.length * 1.3));
-    ctx.font = `900 ${fontSize}px system-ui, Arial`;
+    // 1. حساب حجم الخط الأساسي بناءً على المساحة المتوفرة
+    let fontSize = Math.min(w * 0.15, safeH / (lines.length * 1.3));
     
-    // تصغير الخط أكثر إذا كان أي سطر عريضاً جداً
+    // 2. التحقق من عرض كل سطر وتصغير الخط إذا لزم الأمر لمنع قص الأطراف
+    ctx.font = `900 ${fontSize}px system-ui, sans-serif`;
     lines.forEach(line => {
       const metrics = ctx.measureText(line).width;
-      if (metrics > w * 0.9) {
-        fontSize *= (w * 0.9 / metrics);
+      if (metrics > safeW) {
+        fontSize *= (safeW / metrics);
       }
     });
 
-    const lineHeight = fontSize * 1.2;
-    const totalHeight = lines.length * lineHeight;
-    let startY = centerY - (totalHeight / 2) + (fontSize / 2);
+    const lineHeight = fontSize * 1.25;
+    const totalContentHeight = lines.length * lineHeight;
+    
+    // 3. التوسيط الرأسي المطلق في المساحة المتبقية
+    let startY = uiH + (safeH - totalContentHeight) / 2 + (lineHeight / 2);
 
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
+    ctx.lineJoin = 'round';
+    ctx.miterLimit = 2;
 
     lines.forEach((text, i) => {
       const y = startY + (i * lineHeight);
-      const x = w / 2 + Math.sin(time * 2 + i) * 3; // اهتزاز بسيط
       
-      ctx.save();
-      ctx.translate(x, y);
-      
-      // تأثير التوهج
-      ctx.shadowColor = `hsl(${(time * 50 + i * 20) % 360}, 100%, 50%)`;
-      ctx.shadowBlur = 20;
+      // تأثير اهتزاز خفيف للسطور
+      const shakeX = Math.sin(time * 4 + i) * 2;
+      const waveY = Math.cos(time * 2 + i) * 2;
 
-      // النص الأساسي (أبيض مع حدود سوداء عريضة)
+      ctx.save();
+      ctx.translate(w / 2 + shakeX, y + waveY);
+
+      // تأثير التوهج اللوني (RGB Glow)
+      const hue = (time * 60 + i * 30) % 360;
+      ctx.shadowColor = `hsl(${hue}, 100%, 50%)`;
+      ctx.shadowBlur = 25;
+
+      // حدود النص الخارجية (Stroke) لإعطائه شكلاً ضخماً
       ctx.strokeStyle = '#000';
-      ctx.lineWidth = fontSize * 0.15;
-      ctx.lineJoin = "round";
+      ctx.lineWidth = fontSize * 0.12;
       ctx.strokeText(text, 0, 0);
 
+      // رسم النص الأساسي
       ctx.fillStyle = '#fff';
-      ctx.font = `900 ${fontSize}px system-ui, Arial`;
+      ctx.font = `900 ${fontSize}px system-ui, sans-serif`;
       ctx.fillText(text, 0, 0);
       
       ctx.restore();
@@ -174,7 +196,8 @@ function draw() {
   requestAnimationFrame(draw);
 }
 
-init();
+// البدء
+loadTextFromHash();
 draw();
 </script>
 </body>
